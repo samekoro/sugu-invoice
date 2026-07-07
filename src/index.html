@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>スグ請求書 | 登録不要・無料のインボイス対応 請求書作成ツール</title>
+  <meta name="description" content="会員登録不要・完全無料で使える請求書作成ツール。インボイス制度（適格請求書）の税率区分記載と源泉徴収税額を自動計算。入力データはブラウザ内にのみ保存され、サーバーには一切送信されません。">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <strong>スグ請求書</strong>
+    <span>登録不要・ブラウザ完結の請求書作成ツール</span>
+  </div>
+  <div class="toolbar">
+    <button type="button" id="btn-clear" class="btn">新規作成</button>
+    <button type="button" id="btn-export" class="btn">JSON書き出し</button>
+    <button type="button" id="btn-import" class="btn">JSON読み込み</button>
+    <input type="file" id="import-file" accept="application/json,.json" hidden>
+    <button type="button" id="btn-wipe" class="btn btn-danger">全データ消去</button>
+    <button type="button" id="btn-print" class="btn btn-primary">印刷・PDF保存</button>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <!-- ============ 入力フォーム ============ -->
+  <section class="form-pane" aria-label="請求書入力フォーム">
+
+    <fieldset>
+      <legend>請求先</legend>
+      <div class="field field-inline">
+        <div class="grow">
+          <label for="f-client-name">宛名（会社名・氏名）</label>
+          <input type="text" id="f-client-name" data-bind="client.name" placeholder="株式会社サンプル">
+        </div>
+        <div>
+          <label for="f-honorific">敬称</label>
+          <select id="f-honorific" data-bind="client.honorific">
+            <option value="御中">御中</option>
+            <option value="様">様</option>
+            <option value="">なし</option>
+          </select>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>請求書情報</legend>
+      <div class="field">
+        <label for="f-doc-number">請求書番号</label>
+        <input type="text" id="f-doc-number" data-bind="meta.docNumber">
+      </div>
+      <div class="field field-inline">
+        <div class="grow">
+          <label for="f-issue-date">発行日</label>
+          <input type="date" id="f-issue-date" data-bind="meta.issueDate">
+        </div>
+        <div class="grow">
+          <label for="f-due-date">お支払期限</label>
+          <input type="date" id="f-due-date" data-bind="meta.dueDate">
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-subject">件名（任意）</label>
+        <input type="text" id="f-subject" data-bind="meta.subject" placeholder="〇〇制作費のご請求">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>明細 <small>（最大20行・数量は小数可）</small></legend>
+      <div class="item-header">
+        <span>品目</span><span>数量</span><span>単価</span><span>税率</span><span>金額</span><span></span>
+      </div>
+      <div id="item-rows"></div>
+      <button type="button" id="btn-add-item" class="btn btn-add">＋ 行を追加</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>オプション</legend>
+      <div class="field field-check">
+        <input type="checkbox" id="f-withholding" data-bind="options.withholding">
+        <label for="f-withholding">源泉徴収税額を差し引く（原稿料・デザイン料・講演料など）</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>発行者（あなた）の情報</legend>
+      <div class="field">
+        <label for="f-issuer-name">氏名・屋号</label>
+        <input type="text" id="f-issuer-name" data-bind="issuer.name" placeholder="山田 太郎（ヤマダデザイン）">
+      </div>
+      <div class="field">
+        <label for="f-issuer-address">郵便番号・住所</label>
+        <textarea id="f-issuer-address" data-bind="issuer.zipAddress" rows="2" placeholder="〒100-0001&#10;東京都千代田区千代田1-1-1"></textarea>
+      </div>
+      <div class="field field-inline">
+        <div class="grow">
+          <label for="f-issuer-tel">電話番号（任意）</label>
+          <input type="text" id="f-issuer-tel" data-bind="issuer.tel" placeholder="090-0000-0000">
+        </div>
+        <div class="grow">
+          <label for="f-issuer-email">メールアドレス（任意）</label>
+          <input type="text" id="f-issuer-email" data-bind="issuer.email" placeholder="you@example.com">
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-reg-number">適格請求書発行事業者 登録番号（任意）</label>
+        <input type="text" id="f-reg-number" data-bind="issuer.regNumber" placeholder="T1234567890123">
+        <p id="reg-warning" class="warning" hidden>登録番号は「T + 数字13桁」の形式です（例: T1234567890123）</p>
+      </div>
+      <div class="field">
+        <label for="f-bank">お振込先</label>
+        <textarea id="f-bank" data-bind="issuer.bank" rows="2" placeholder="〇〇銀行 〇〇支店 普通 1234567&#10;名義: ヤマダ タロウ"></textarea>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>備考</legend>
+      <div class="field">
+        <label for="f-notes" class="sr-only">備考</label>
+        <textarea id="f-notes" data-bind="notes" rows="3" placeholder="恐れ入りますが、振込手数料は貴社にてご負担願います。"></textarea>
+      </div>
+    </fieldset>
+
+  </section>
+
+  <!-- ============ 請求書プレビュー ============ -->
+  <section class="preview-wrap" aria-label="請求書プレビュー">
+    <div id="invoice-preview" class="paper">
+
+      <h1 class="doc-title">請求書</h1>
+
+      <div class="doc-head">
+        <div class="doc-head-left">
+          <p class="pv-client"><span id="pv-client-name">（請求先名）</span>&thinsp;<span id="pv-honorific">御中</span></p>
+          <p class="pv-subject" id="pv-subject-row" hidden>件名：<span id="pv-subject"></span></p>
+          <p class="pv-greeting">下記のとおり、ご請求申し上げます。</p>
+          <div class="pv-total-box">
+            <span>ご請求金額</span>
+            <strong id="pv-total-big">¥0</strong>
+          </div>
+        </div>
+        <div class="doc-head-right">
+          <table class="pv-meta">
+            <tbody>
+              <tr><th>請求書番号</th><td id="pv-docnumber"></td></tr>
+              <tr><th>発行日</th><td id="pv-issuedate"></td></tr>
+              <tr><th>お支払期限</th><td id="pv-duedate"></td></tr>
+            </tbody>
+          </table>
+          <div class="pv-issuer">
+            <p class="pv-issuer-name" id="pv-issuer-name"></p>
+            <p class="pre-line" id="pv-issuer-address"></p>
+            <p id="pv-issuer-contact"></p>
+            <p id="pv-issuer-reg" hidden>登録番号：<span id="pv-regnumber"></span></p>
+          </div>
+        </div>
+      </div>
+
+      <table class="pv-items">
+        <thead>
+          <tr>
+            <th class="col-desc">品目</th>
+            <th class="col-qty">数量</th>
+            <th class="col-price">単価</th>
+            <th class="col-amount">金額（税抜）</th>
+          </tr>
+        </thead>
+        <tbody id="pv-item-rows"></tbody>
+      </table>
+
+      <table class="pv-totals">
+        <tbody>
+          <tr><th>小計（税抜）</th><td id="pv-subtotal">¥0</td></tr>
+          <tr id="pv-tax10-row" hidden><th>消費税（10%対象 <span id="pv-taxable10"></span>）</th><td id="pv-tax10"></td></tr>
+          <tr id="pv-tax8-row" hidden><th>消費税（軽減8%対象 <span id="pv-taxable8"></span>）</th><td id="pv-tax8"></td></tr>
+          <tr id="pv-withholding-row" hidden><th>源泉徴収税額</th><td id="pv-withholding"></td></tr>
+          <tr class="pv-grand"><th>ご請求金額</th><td id="pv-total">¥0</td></tr>
+        </tbody>
+      </table>
+
+      <p class="pv-note" id="pv-reduced-note" hidden>※は軽減税率（8%）対象品目です。</p>
+      <p class="pv-note" id="pv-withholding-note" hidden>源泉徴収税額は税抜金額を基準に計算しています。</p>
+
+      <div class="pv-block" id="pv-bank-block" hidden>
+        <h2>お振込先</h2>
+        <p class="pre-line" id="pv-bank"></p>
+      </div>
+
+      <div class="pv-block" id="pv-notes-block" hidden>
+        <h2>備考</h2>
+        <p class="pre-line" id="pv-notes"></p>
+      </div>
+
+      <p class="pv-credit">Created with スグ請求書</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <p>入力内容はお使いのブラウザ内（localStorage）にのみ保存され、サーバーには一切送信されません。</p>
+  <p>本ツールの計算結果は参考情報です。税務上の取り扱いの最終確認は、ご自身または税理士にご確認ください。</p>
+  <p>&copy; 2026 スグ請求書 v0.1.0</p>
+</footer>
+
+<template id="item-row-template">
+  <div class="item-row">
+    <input class="item-desc" type="text" placeholder="品目・内容" aria-label="品目">
+    <input class="item-qty" type="number" min="0" step="0.01" aria-label="数量">
+    <input class="item-price" type="number" min="0" step="1" aria-label="単価（円）">
+    <select class="item-tax" aria-label="税率">
+      <option value="10">10%</option>
+      <option value="8">8%</option>
+    </select>
+    <span class="item-amount">¥0</span>
+    <button type="button" class="item-remove" title="この行を削除" aria-label="この行を削除">×</button>
+  </div>
+</template>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "sugu-invoice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "登録不要・ブラウザ完結の請求書作成ツール「スグ請求書」— インボイス制度・源泉徴収の自動計算対応",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samekoro/sugu-invoice.git"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs",
+    "test": "node --test",
+    "check": "node --check src/js/app.js && node --check src/js/calc.js && node --check scripts/dev-server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
